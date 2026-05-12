@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoDistrito Piura | Análisis Geoespacial Profesional</title>
+  <meta name="description" content="Visualiza y clasifica la distribución geográfica de clientes en los distritos y provincias de la región Piura.">
+  
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <!-- Leaflet MarkerCluster -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Estilos propios -->
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- Bibliotecas externas (defer) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════
+       PANTALLA DE CARGA INICIAL
+  ══════════════════════════════════════════════════════ -->
+  <div id="uploadScreen">
+    <div class="upload-box">
+      <div class="upload-logo">🗺️</div>
+      <h1>GeoDistrito Piura</h1>
+      <p>Carga tu archivo Excel de clientes para clasificar su ubicación por distritos y provincias de manera automática.</p>
+
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <div class="drop-icon">📂</div>
+        <div class="drop-label">Arrastra tu archivo aquí o <strong>haz clic para buscar</strong></div>
+        <div class="drop-ext">.xlsx · .xls</div>
+      </div>
+
+      <div class="upload-progress" id="uploadProgress">
+        <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+        <div class="prog-text" id="progText">Cargando...</div>
+      </div>
+
+      <div class="col-config" id="colConfig">
+        <h3>Mapeo de columnas</h3>
+        <div class="col-grid">
+          <div class="col-field">
+            <label>Latitud</label>
+            <select id="selLat"></select>
+          </div>
+          <div class="col-field">
+            <label>Longitud</label>
+            <select id="selLon"></select>
+          </div>
+          <div class="col-field">
+            <label>Nombre cliente</label>
+            <select id="selName"></select>
+          </div>
+          <div class="col-field">
+            <label>Col. Distrito</label>
+            <select id="selDist"></select>
+          </div>
+        </div>
+        <button class="btn-launch" id="btnLaunch">
+          🚀 Procesar e Iniciar Mapa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       OVERLAY DE PROCESAMIENTO
+  ══════════════════════════════════════════════════════ -->
+  <div id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Preparando sistema...</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       APLICACIÓN PRINCIPAL
+  ══════════════════════════════════════════════════════ -->
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <div class="hdr-logo">GeoDistrito Piura</div>
+      <div class="hdr-sep"></div>
+      <div class="hdr-file" id="hdrFile">—</div>
+      <div class="hdr-stats">
+        <div class="stat-chip">Clientes: <span id="hdrTotal">0</span></div>
+        <div class="stat-chip">Distritos: <span id="hdrDistritos">0</span></div>
+        <div class="stat-chip">Provincias: <span id="hdrProvincias">0</span></div>
+      </div>
+      <button class="btn-export" id="btnExport">⬇ Exportar Resultados</button>
+      <button class="btn-new" id="btnReset">↩ Nuevo Archivo</button>
+    </header>
+
+    <!-- Body -->
+    <main id="body">
+      <!-- Panel lateral -->
+      <aside id="panel">
+        <nav class="panel-tabs">
+          <button class="tab-btn active" data-tab="distritos">Distritos</button>
+          <button class="tab-btn" data-tab="clientes">Clientes</button>
+          <button class="tab-btn" data-tab="estadisticas">Estadísticas</button>
+        </nav>
+
+        <!-- TAB: DISTRITOS -->
+        <section class="tab-content active" id="tab-distritos">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchDist" placeholder="Buscar distrito o provincia...">
+          </div>
+          <select class="filter-sel" id="filterProv">
+            <option value="">Todas las provincias</option>
+          </select>
+          <div id="distListWrap"></div>
+        </section>
+
+        <!-- TAB: CLIENTES -->
+        <section class="tab-content" id="tab-clientes">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchCliente" placeholder="Buscar cliente por nombre...">
+          </div>
+          <select class="filter-sel" id="filterDistCliente">
+            <option value="">Todos los distritos</option>
+          </select>
+          <div id="clientListWrap"></div>
+        </section>
+
+        <!-- TAB: ESTADÍSTICAS -->
+        <section class="tab-content" id="tab-estadisticas">
+          <div class="stat-card">
+            <h4>Resumen General</h4>
+            <div class="big-num" id="statTotal">0</div>
+            <div class="big-label">clientes procesados</div>
+          </div>
+          <div class="stat-card">
+            <h4>Distribución por Provincia</h4>
+            <div id="statByProv"></div>
+          </div>
+          <div class="stat-card">
+            <h4>Top 15 Distritos</h4>
+            <div id="statByDist"></div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Contenedor del Mapa -->
+      <div style="flex:1; position:relative; overflow:hidden;">
+        <div id="map"></div>
+        <div class="map-legend" id="mapLegend">
+          <div class="legend-title">Leyenda: Provincias</div>
+          <div id="legendBody"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Script principal (Módulo ES6) -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

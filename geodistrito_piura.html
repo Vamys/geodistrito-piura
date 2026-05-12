@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoDistrito Piura</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Leaflet MarkerCluster -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<!-- XLSX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:       #0b0e15;
+  --panel:    #111520;
+  --surface:  #161b27;
+  --surface2: #1c2235;
+  --border:   #232b3e;
+  --border2:  #2d3750;
+  --text:     #e2e8f0;
+  --muted:    #5a6a8a;
+  --muted2:   #8896b3;
+  --accent:   #3b82f6;
+  --accent-h: #60a5fa;
+  --green:    #22c55e;
+  --amber:    #f59e0b;
+  --red:      #ef4444;
+  --purple:   #a855f7;
+  --cyan:     #06b6d4;
+  --pink:     #ec4899;
+  --orange:   #f97316;
+
+  /* Province colors */
+  --c-piura:       #3b82f6;
+  --c-sullana:     #22c55e;
+  --c-paita:       #f97316;
+  --c-talara:      #ef4444;
+  --c-sechura:     #a855f7;
+  --c-morropon:    #f59e0b;
+  --c-huancabamba: #06b6d4;
+  --c-ayabaca:     #ec4899;
+
+  --panel-w: 320px;
+  --header-h: 54px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+/* ── UPLOAD SCREEN ────────────────────────────────── */
+#uploadScreen {
+  position: fixed; inset: 0; z-index: 1000;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 0;
+}
+.upload-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px;
+  max-width: 480px; width: 90%;
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5);
+}
+.upload-logo {
+  width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 20px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  display: flex; align-items: center; justify-content: center; font-size: 24px;
+}
+.upload-box h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.upload-box p  { font-size: 13px; color: var(--muted2); margin-bottom: 28px; line-height: 1.6; }
+.dropzone {
+  border: 2px dashed var(--border2); border-radius: 12px; padding: 32px 20px;
+  cursor: pointer; transition: all .2s; position: relative;
+}
+.dropzone:hover, .dropzone.over { border-color: var(--accent); background: rgba(59,130,246,.06); }
+.dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-icon { font-size: 32px; margin-bottom: 10px; }
+.drop-label { font-size: 13px; color: var(--muted2); }
+.drop-label strong { color: var(--accent-h); }
+.drop-ext { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+.upload-progress { margin-top: 20px; display: none; }
+.prog-bar { background: var(--surface2); border-radius: 99px; height: 4px; overflow: hidden; margin-bottom: 8px; }
+.prog-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--purple)); width: 0%; transition: width .3s; }
+.prog-text { font-size: 12px; color: var(--muted2); font-family: 'JetBrains Mono', monospace; }
+.col-config { display: none; margin-top: 20px; text-align: left; }
+.col-config h3 { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; font-family: 'JetBrains Mono', monospace; }
+.col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.col-field label { font-size: 11px; color: var(--muted2); display: block; margin-bottom: 4px; }
+select {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); border-radius: 6px; padding: 7px 10px;
+  font-size: 12px; font-family: 'JetBrains Mono', monospace; cursor: pointer;
+}
+select:focus { outline: none; border-color: var(--accent); }
+.btn-launch {
+  width: 100%; padding: 13px; border: none; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  color: white; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: opacity .2s, transform .1s;
+}
+.btn-launch:hover { opacity: .9; transform: translateY(-1px); }
+.btn-launch:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+/* ── MAIN APP ─────────────────────────────────────── */
+#app { display: none; height: 100%; flex-direction: column; }
+#app.visible { display: flex; }
+
+/* Header */
+#header {
+  height: var(--header-h); background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0; z-index: 100;
+}
+.hdr-logo { font-size: 18px; font-weight: 700; background: linear-gradient(135deg,var(--accent),var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; white-space: nowrap; }
+.hdr-sep { width: 1px; height: 20px; background: var(--border2); }
+.hdr-file { font-size: 11px; color: var(--muted2); font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.hdr-stats { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
+.stat-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+.stat-chip span { color: var(--accent-h); font-weight: 600; }
+.btn-export {
+  background: var(--green); color: #0a1a0a; border: none; border-radius: 8px;
+  padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  transition: background .2s;
+}
+.btn-export:hover { background: #4ade80; }
+.btn-new {
+  background: var(--surface2); color: var(--muted2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; flex-shrink: 0;
+  transition: all .2s;
+}
+.btn-new:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Body */
+#body { display: flex; flex: 1; overflow: hidden; }
+
+/* Panel */
+#panel {
+  width: var(--panel-w); background: var(--panel); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+}
+.panel-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.tab-btn {
+  flex: 1; padding: 10px 4px; font-size: 11px; font-weight: 500;
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all .2s;
+  letter-spacing: .3px;
+}
+.tab-btn.active { color: var(--accent-h); border-bottom-color: var(--accent); }
+
+.tab-content { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px; }
+.tab-content.active { display: flex; flex-direction: column; gap: 10px; }
+.tab-content::-webkit-scrollbar { width: 3px; }
+.tab-content::-webkit-scrollbar-track { background: transparent; }
+.tab-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* Search */
+.search-wrap { position: relative; }
+.search-wrap input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text); border-radius: 8px; padding: 8px 10px 8px 32px;
+  font-size: 12px; font-family: 'Inter', sans-serif;
+}
+.search-wrap input:focus { outline: none; border-color: var(--accent); }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; pointer-events: none; }
+
+/* Filter select */
+.filter-sel { width: 100%; }
+
+/* Province Section */
+.prov-section { border-radius: 10px; overflow: hidden; }
+.prov-header {
+  display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+  cursor: pointer; user-select: none; transition: background .15s;
+}
+.prov-header:hover { background: var(--surface2); }
+.prov-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.prov-name { font-size: 12px; font-weight: 600; flex: 1; }
+.prov-count { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted2); }
+.prov-chevron { color: var(--muted); font-size: 10px; transition: transform .2s; }
+.prov-chevron.open { transform: rotate(90deg); }
+.prov-districts { display: none; padding: 4px 0 8px 24px; }
+.prov-districts.open { display: block; }
+
+.dist-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border-radius: 6px; cursor: pointer; transition: background .15s;
+}
+.dist-row:hover, .dist-row.active { background: var(--surface2); }
+.dist-row.active .dist-name { color: var(--accent-h); }
+.dist-name { font-size: 11px; flex: 1; color: var(--muted2); }
+.dist-row.active .dist-name { color: var(--text); }
+.dist-count { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--muted); background: var(--surface2); padding: 1px 6px; border-radius: 99px; }
+
+/* Client list */
+.client-item {
+  padding: 9px 10px; border-radius: 8px; background: var(--surface);
+  border: 1px solid var(--border); cursor: pointer; transition: all .15s;
+}
+.client-item:hover { border-color: var(--accent); }
+.client-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-meta { font-size: 10px; color: var(--muted2); font-family: 'JetBrains Mono', monospace; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+.client-dist { font-size: 10px; color: var(--muted2); margin-top: 3px; }
+.client-tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 500; }
+
+/* Stats tab */
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.stat-card h4 { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+.stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.stat-label { font-size: 11px; color: var(--muted2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-bar-wrap { width: 80px; background: var(--surface2); border-radius: 99px; height: 5px; flex-shrink: 0; }
+.stat-bar { height: 5px; border-radius: 99px; }
+.stat-val { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text); min-width: 28px; text-align: right; }
+.big-num { font-size: 28px; font-weight: 700; color: var(--accent-h); }
+.big-label { font-size: 11px; color: var(--muted2); margin-top: 2px; }
+
+/* Map */
+#map { flex: 1; background: #0d1117; }
+
+/* Leaflet overrides */
+.leaflet-container { background: #0d1117; font-family: 'Inter', sans-serif; }
+.leaflet-popup-content-wrapper { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.6); }
+.leaflet-popup-content { color: var(--text); font-size: 12px; margin: 12px 14px; }
+.leaflet-popup-tip { background: var(--surface); }
+.popup-name { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.popup-row { display: flex; gap: 6px; margin-bottom: 3px; font-size: 11px; }
+.popup-key { color: var(--muted2); min-width: 60px; }
+.popup-val { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+.popup-dist-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 6px; }
+.leaflet-control-zoom a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.leaflet-control-zoom a:hover { background: var(--surface2) !important; }
+
+/* Legend */
+.map-legend {
+  position: absolute; bottom: 24px; right: 10px; z-index: 500;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; min-width: 170px;
+}
+.legend-title { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; }
+.legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background .15s; }
+.legend-row:hover { background: var(--surface2); }
+.legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; opacity: .85; }
+.legend-name { font-size: 11px; color: var(--muted2); flex: 1; }
+.legend-n { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+
+/* Loading overlay */
+#loadingOverlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(11,14,21,.85); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+}
+#loadingOverlay.show { display: flex; }
+.loading-spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--border2); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--muted2); font-family: 'JetBrains Mono', monospace; }
+
+/* No data */
+.empty-msg { font-size: 12px; color: var(--muted); text-align: center; padding: 24px 0; }
+
+/* Scrollbar global */
+* { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     UPLOAD SCREEN
+══════════════════════════════════════════════════════ -->
+<div id="uploadScreen">
+  <div class="upload-box">
+    <div class="upload-logo">🗺️</div>
+    <h1>GeoDistrito Piura</h1>
+    <p>Carga tu archivo de clientes y visualiza su distribución geográfica por distritos y provincias de la región Piura.</p>
+
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+      <div class="drop-icon">📂</div>
+      <div class="drop-label">Arrastra tu archivo aquí o <strong>haz clic para buscar</strong></div>
+      <div class="drop-ext">.xlsx · .xls</div>
+    </div>
+
+    <div class="upload-progress" id="uploadProgress">
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-text" id="progText">Cargando...</div>
+    </div>
+
+    <div class="col-config" id="colConfig">
+      <h3>Mapeo de columnas</h3>
+      <div class="col-grid">
+        <div class="col-field">
+          <label>Latitud</label>
+          <select id="selLat"></select>
+        </div>
+        <div class="col-field">
+          <label>Longitud</label>
+          <select id="selLon"></select>
+        </div>
+        <div class="col-field">
+          <label>Nombre cliente</label>
+          <select id="selName"></select>
+        </div>
+        <div class="col-field">
+          <label>Col. Distrito</label>
+          <select id="selDist"></select>
+        </div>
+      </div>
+      <button class="btn-launch" id="btnLaunch" onclick="launchApp()">
+        🚀 Cargar polígonos e iniciar mapa
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     LOADING OVERLAY
+══════════════════════════════════════════════════════ -->
+<div id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">Descargando polígonos del INEI...</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════════════ -->
+<div id="app">
+  <!-- Header -->
+  <div id="header">
+    <div class="hdr-logo">GeoDistrito Piura</div>
+    <div class="hdr-sep"></div>
+    <div class="hdr-file" id="hdrFile">—</div>
+    <div class="hdr-stats">
+      <div class="stat-chip">Clientes: <span id="hdrTotal">0</span></div>
+      <div class="stat-chip">Distritos: <span id="hdrDistritos">0</span></div>
+      <div class="stat-chip">Provincias: <span id="hdrProvincias">0</span></div>
+    </div>
+    <button class="btn-export" onclick="exportExcel()">⬇ Exportar Excel</button>
+    <button class="btn-new" onclick="resetApp()">↩ Nuevo archivo</button>
+  </div>
+
+  <!-- Body -->
+  <div id="body">
+    <!-- Panel lateral -->
+    <div id="panel">
+      <div class="panel-tabs">
+        <button class="tab-btn active" onclick="switchTab('distritos')">Distritos</button>
+        <button class="tab-btn" onclick="switchTab('clientes')">Clientes</button>
+        <button class="tab-btn" onclick="switchTab('estadisticas')">Estadísticas</button>
+      </div>
+
+      <!-- TAB: DISTRITOS -->
+      <div class="tab-content active" id="tab-distritos">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchDist" placeholder="Buscar distrito..." oninput="filterDistritos()">
+        </div>
+        <select class="filter-sel" id="filterProv" onchange="filterDistritos()">
+          <option value="">Todas las provincias</option>
+        </select>
+        <div id="distListWrap"></div>
+      </div>
+
+      <!-- TAB: CLIENTES -->
+      <div class="tab-content" id="tab-clientes">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchCliente" placeholder="Buscar cliente..." oninput="filterClientes()">
+        </div>
+        <select class="filter-sel" id="filterDistCliente" onchange="filterClientes()">
+          <option value="">Todos los distritos</option>
+        </select>
+        <div id="clientListWrap"></div>
+      </div>
+
+      <!-- TAB: ESTADÍSTICAS -->
+      <div class="tab-content" id="tab-estadisticas">
+        <div class="stat-card">
+          <h4>Resumen general</h4>
+          <div class="big-num" id="statTotal">0</div>
+          <div class="big-label">clientes clasificados</div>
+        </div>
+        <div class="stat-card">
+          <h4>Por provincia</h4>
+          <div id="statByProv"></div>
+        </div>
+        <div class="stat-card">
+          <h4>Top distritos</h4>
+          <div id="statByDist"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mapa -->
+    <div style="flex:1; position:relative; overflow:hidden;">
+      <div id="map"></div>
+      <div class="map-legend" id="mapLegend">
+        <div class="legend-title">Provincias</div>
+        <div id="legendBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════
+const PROVINCE_COLORS = {
+  'PIURA':       '#3b82f6',
+  'SULLANA':     '#22c55e',
+  'PAITA':       '#f97316',
+  'TALARA':      '#ef4444',
+  'SECHURA':     '#a855f7',
+  'MORROPON':    '#f59e0b',
+  'HUANCABAMBA': '#06b6d4',
+  'AYABACA':     '#ec4899',
+};
+const GEOJSON_URL = 'https://raw.githubusercontent.com/josedaniel-cb/limites-piura-geojson/main/LIM_DISTRITAL_PIURA_MIN.json';
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let rawData       = [];
+let columns       = [];
+let classifiedData= [];
+let districtPolys = [];   // [{name, province, rings, feature}]
+let map           = null;
+let markersLayer  = null;
+let polyLayers    = {};   // district name -> leaflet layer
+let selectedDist  = null;
+let fileName      = '';
+
+// ══════════════════════════════════════════════════
+//  DRAG & DROP
+// ══════════════════════════════════════════════════
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+function handleFileSelect(e) { if (e.target.files[0]) loadFile(e.target.files[0]); }
+
+function loadFile(file) {
+  fileName = file.name;
+  document.getElementById('uploadProgress').style.display = 'block';
+  document.getElementById('progFill').style.width = '30%';
+  document.getElementById('progText').textContent = 'Leyendo archivo...';
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const wb   = XLSX.read(ev.target.result, { type: 'array' });
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    rawData    = XLSX.utils.sheet_to_json(ws, { defval: null });
+    columns    = Object.keys(rawData[0] || {});
+
+    if (!rawData.length) { alert('El archivo está vacío.'); return; }
+
+    document.getElementById('progFill').style.width = '100%';
+    document.getElementById('progText').textContent = `✓ ${rawData.length} filas · ${columns.length} columnas`;
+
+    populateSelects();
+    document.getElementById('colConfig').style.display = 'block';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function populateSelects() {
+  const ids = ['selLat','selLon','selName','selDist'];
+  ids.forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = columns.map(c => `<option value="${c}">${c}</option>`).join('');
+  });
+  // Auto-detect
+  const guess = (patterns) => columns.find(c => patterns.some(p => p.test(c))) || columns[0];
+  document.getElementById('selLat').value  = guess([/^lat/i, /latitud/i]);
+  document.getElementById('selLon').value  = guess([/^lon/i, /^lng/i, /longitud/i]);
+  document.getElementById('selName').value = guess([/^name$/i, /nombre/i, /^name/i]);
+  document.getElementById('selDist').value = guess([/distrit/i]);
+}
+
+// ══════════════════════════════════════════════════
+//  LAUNCH APP
+// ══════════════════════════════════════════════════
+async function launchApp() {
+  document.getElementById('btnLaunch').disabled = true;
+  document.getElementById('loadingOverlay').classList.add('show');
+  setLoading('Descargando polígonos del INEI desde GitHub...');
+
+  try {
+    const resp = await fetch(GEOJSON_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    setLoading('Procesando polígonos...');
+    const geojson = await resp.json();
+
+    districtPolys = [];
+    for (const feat of geojson.features) {
+      const props = feat.properties;
+      const distName  = (props.NOMBDIST || props.nombdist || '').toUpperCase().trim();
+      const provName  = (props.NOMBPROV || props.nombprov || '').toUpperCase().trim();
+      if (!distName) continue;
+
+      const geom  = feat.geometry;
+      const rings = [];
+      if (geom.type === 'Polygon')      rings.push(geom.coordinates[0]);
+      else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(p => rings.push(p[0]));
+
+      districtPolys.push({ name: distName, province: provName, rings, feature: feat });
+    }
+
+    setLoading(`Clasificando ${rawData.length} clientes...`);
+    await sleep(30);
+    classifyClients();
+
+    setLoading('Renderizando mapa...');
+    await sleep(30);
+    initMap();
+    renderMap();
+    buildPanel();
+    buildStats();
+
+    document.getElementById('loadingOverlay').classList.remove('show');
+    document.getElementById('uploadScreen').style.display = 'none';
+    document.getElementById('app').classList.add('visible');
+
+  } catch(e) {
+    document.getElementById('loadingOverlay').classList.remove('show');
+    document.getElementById('btnLaunch').disabled = false;
+    alert('Error al cargar los polígonos: ' + e.message + '\nVerifica tu conexión a internet.');
+  }
+}
+
+function setLoading(txt) { document.getElementById('loadingText').textContent = txt; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ══════════════════════════════════════════════════
+//  CLASSIFICATION
+// ══════════════════════════════════════════════════
+function pip(lon, lat, ring) {
+  let inside = false, n = ring.length, j = n - 1;
+  for (let i = 0; i < n; i++) {
+    const [xi,yi] = ring[i], [xj,yj] = ring[j];
+    if (((yi>lat)!==(yj>lat)) && (lon<(xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside;
+    j = i;
+  }
+  return inside;
+}
+
+function classifyPoint(lon, lat) {
+  for (const d of districtPolys)
+    for (const ring of d.rings)
+      if (pip(lon, lat, ring)) return { district: d.name, province: d.province };
+  return { district: 'NO IDENTIFICADO', province: '—' };
+}
+
+function classifyClients() {
+  const colLat  = document.getElementById('selLat').value;
+  const colLon  = document.getElementById('selLon').value;
+  const colName = document.getElementById('selName').value;
+  const colDist = document.getElementById('selDist').value;
+
+  classifiedData = rawData.map((row, idx) => {
+    const lat = parseFloat(row[colLat]);
+    const lon = parseFloat(row[colLon]);
+    const valid = !isNaN(lat) && !isNaN(lon);
+    const { district, province } = valid ? classifyPoint(lon, lat) : { district:'SIN COORDENADAS', province:'—' };
+    const out = { ...row, _idx: idx, _lat: lat, _lon: lon, _name: row[colName] || `Cliente ${idx+1}`, _district: district, _province: province };
+    out[colDist] = district;
+    out['PROVINCIA'] = province;
+    return out;
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  MAP
+// ══════════════════════════════════════════════════
+function initMap() {
+  if (map) { map.remove(); map = null; }
+  map = L.map('map', { zoomControl: true, attributionControl: false }).setView([-5.2, -80.5], 8);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19
+  }).addTo(map);
+}
+
+function renderMap() {
+  // Remove old layers
+  Object.values(polyLayers).forEach(l => l && map.removeLayer(l));
+  polyLayers = {};
+  if (markersLayer) { map.removeLayer(markersLayer); markersLayer = null; }
+
+  // Count per district
+  const distCount = {};
+  classifiedData.forEach(c => { distCount[c._district] = (distCount[c._district]||0)+1; });
+
+  // Draw polygons
+  districtPolys.forEach(dp => {
+    const color  = PROVINCE_COLORS[dp.province] || '#94a3b8';
+    const count  = distCount[dp.name] || 0;
+    const layer  = L.geoJSON(dp.feature, {
+      style: {
+        color:       color,
+        weight:      1.2,
+        opacity:     .7,
+        fillColor:   color,
+        fillOpacity: count > 0 ? 0.22 : 0.06,
+      }
+    }).addTo(map);
+
+    layer.on('click', () => selectDistrict(dp.name));
+    layer.on('mouseover', function(e) {
+      e.target.setStyle({ fillOpacity: count>0 ? 0.38 : 0.15, weight: 2 });
+    });
+    layer.on('mouseout', function(e) {
+      if (selectedDist !== dp.name)
+        e.target.setStyle({ fillOpacity: count>0 ? 0.22 : 0.06, weight: 1.2 });
+    });
+
+    polyLayers[dp.name] = layer;
+  });
+
+  // Draw markers with clusters
+  markersLayer = L.markerClusterGroup({
+    maxClusterRadius: 40,
+    iconCreateFunction: cluster => {
+      const n = cluster.getChildCount();
+      return L.divIcon({
+        html: `<div style="background:rgba(59,130,246,.85);color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;border:2px solid rgba(255,255,255,.3)">${n}</div>`,
+        iconSize: [34,34], className: ''
+      });
+    }
+  });
+
+  classifiedData.forEach(c => {
+    if (isNaN(c._lat) || isNaN(c._lon)) return;
+    const color = PROVINCE_COLORS[c._province] || '#94a3b8';
+    const icon  = L.divIcon({
+      html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,.5);box-shadow:0 0 6px ${color}"></div>`,
+      iconSize: [10,10], iconAnchor: [5,5], className: ''
+    });
+    const marker = L.marker([c._lat, c._lon], { icon });
+    marker.bindPopup(buildPopup(c));
+    marker.on('click', () => {
+      switchTab('clientes');
+      setTimeout(() => scrollToClient(c._idx), 100);
+    });
+    markersLayer.addLayer(marker);
+  });
+
+  map.addLayer(markersLayer);
+
+  // Build legend
+  buildLegend(distCount);
+
+  // Fit bounds
+  const valid = classifiedData.filter(c => !isNaN(c._lat));
+  if (valid.length) {
+    const bounds = L.latLngBounds(valid.map(c => [c._lat, c._lon]));
+    map.fitBounds(bounds, { padding: [40,40] });
+  }
+
+  // Header stats
+  const dists  = new Set(classifiedData.filter(c => c._district !== 'NO IDENTIFICADO' && c._district !== 'SIN COORDENADAS').map(c => c._district));
+  const provs  = new Set(classifiedData.filter(c => c._province !== '—').map(c => c._province));
+  document.getElementById('hdrFile').textContent      = fileName;
+  document.getElementById('hdrTotal').textContent     = classifiedData.length;
+  document.getElementById('hdrDistritos').textContent = dists.size;
+  document.getElementById('hdrProvincias').textContent= provs.size;
+}
+
+function buildPopup(c) {
+  const color = PROVINCE_COLORS[c._province] || '#94a3b8';
+  return `<div class="popup-name">${c._name}</div>
+    <div class="popup-row"><span class="popup-key">Distrito</span><span class="popup-val">${c._district}</span></div>
+    <div class="popup-row"><span class="popup-key">Provincia</span><span class="popup-val">${c._province}</span></div>
+    <div class="popup-row"><span class="popup-key">Lat</span><span class="popup-val">${isNaN(c._lat)?'—':c._lat.toFixed(5)}</span></div>
+    <div class="popup-row"><span class="popup-key">Lon</span><span class="popup-val">${isNaN(c._lon)?'—':c._lon.toFixed(5)}</span></div>
+    <span class="popup-dist-tag" style="background:${color}22;color:${color}">${c._district}</span>`;
+}
+
+function buildLegend(distCount) {
+  // Group by province, only provinces that have clients
+  const provClients = {};
+  classifiedData.forEach(c => {
+    if (c._province && c._province !== '—') provClients[c._province] = (provClients[c._province]||0)+1;
+  });
+
+  const html = Object.entries(PROVINCE_COLORS)
+    .filter(([p]) => provClients[p])
+    .sort((a,b) => (provClients[b[0]]||0)-(provClients[a[0]]||0))
+    .map(([p,color]) => `
+      <div class="legend-row" onclick="filterByProvince('${p}')">
+        <div class="legend-swatch" style="background:${color}"></div>
+        <div class="legend-name">${cap(p)}</div>
+        <div class="legend-n">${provClients[p]||0}</div>
+      </div>`).join('');
+  document.getElementById('legendBody').innerHTML = html || '<div style="font-size:11px;color:var(--muted)">Sin datos</div>';
+}
+
+function cap(s) { return s.charAt(0)+s.slice(1).toLowerCase(); }
+
+// ══════════════════════════════════════════════════
+//  PANEL: DISTRICT TREE
+// ══════════════════════════════════════════════════
+function buildPanel() {
+  // Populate province filter
+  const provs = [...new Set(classifiedData.filter(c=>c._province!=='—').map(c=>c._province))].sort();
+  document.getElementById('filterProv').innerHTML = '<option value="">Todas las provincias</option>'
+    + provs.map(p => `<option value="${p}">${cap(p)}</option>`).join('');
+
+  // Populate district filter for clients tab
+  const dists = [...new Set(classifiedData.map(c=>c._district))].sort();
+  document.getElementById('filterDistCliente').innerHTML = '<option value="">Todos los distritos</option>'
+    + dists.map(d => `<option value="${d}">${d}</option>`).join('');
+
+  renderDistrictTree(classifiedData);
+  renderClientList(classifiedData);
+}
+
+function renderDistrictTree(data) {
+  // Group by province -> district
+  const tree = {};
+  data.forEach(c => {
+    const p = c._province || '—';
+    const d = c._district || '—';
+    if (!tree[p]) tree[p] = {};
+    if (!tree[p][d]) tree[p][d] = 0;
+    tree[p][d]++;
+  });
+
+  let html = '';
+  Object.entries(tree).sort().forEach(([prov, dists]) => {
+    const color = PROVINCE_COLORS[prov] || '#94a3b8';
+    const total = Object.values(dists).reduce((a,b)=>a+b,0);
+    html += `<div class="prov-section">
+      <div class="prov-header" onclick="toggleProv(this)">
+        <div class="prov-dot" style="background:${color}"></div>
+        <div class="prov-name">${cap(prov)}</div>
+        <div class="prov-count">${total}</div>
+        <div class="prov-chevron">▶</div>
+      </div>
+      <div class="prov-districts">`;
+    Object.entries(dists).sort((a,b)=>b[1]-a[1]).forEach(([dist, n]) => {
+      html += `<div class="dist-row" id="dr-${esc(dist)}" onclick="selectDistrict('${esc(dist)}')">
+        <div class="dist-name">${dist}</div>
+        <div class="dist-count">${n}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  document.getElementById('distListWrap').innerHTML = html || '<div class="empty-msg">Sin datos</div>';
+}
+
+function esc(s) { return s.replace(/'/g,"\\'").replace(/\s/g,'_'); }
+
+function toggleProv(el) {
+  const body = el.nextElementSibling;
+  const chev = el.querySelector('.prov-chevron');
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+function filterDistritos() {
+  const q    = document.getElementById('searchDist').value.toLowerCase();
+  const prov = document.getElementById('filterProv').value;
+  const filtered = classifiedData.filter(c =>
+    (!q    || c._district.toLowerCase().includes(q) || c._province.toLowerCase().includes(q)) &&
+    (!prov || c._province === prov)
+  );
+  renderDistrictTree(filtered);
+}
+
+function filterByProvince(prov) {
+  document.getElementById('filterProv').value = prov;
+  switchTab('distritos');
+  filterDistritos();
+}
+
+// ══════════════════════════════════════════════════
+//  PANEL: CLIENT LIST
+// ══════════════════════════════════════════════════
+function renderClientList(data) {
+  const html = data.slice(0, 200).map(c => {
+    const color = PROVINCE_COLORS[c._province] || '#94a3b8';
+    return `<div class="client-item" id="ci-${c._idx}" onclick="flyToClient(${c._idx})">
+      <div class="client-name">${c._name}</div>
+      <div class="client-meta">
+        <span>${isNaN(c._lat)?'—':c._lat.toFixed(4)}</span>
+        <span>${isNaN(c._lon)?'—':c._lon.toFixed(4)}</span>
+      </div>
+      <div class="client-dist">
+        <span class="client-tag" style="background:${color}22;color:${color}">${c._district}</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:4px">${cap(c._province)}</span>
+      </div>
+    </div>`;
+  }).join('');
+  const extra = data.length > 200 ? `<div class="empty-msg">+ ${data.length-200} más (usa el buscador para filtrar)</div>` : '';
+  document.getElementById('clientListWrap').innerHTML = html + extra || '<div class="empty-msg">Sin resultados</div>';
+}
+
+function filterClientes() {
+  const q    = document.getElementById('searchCliente').value.toLowerCase();
+  const dist = document.getElementById('filterDistCliente').value;
+  const filtered = classifiedData.filter(c =>
+    (!q    || c._name.toLowerCase().includes(q)) &&
+    (!dist || c._district === dist)
+  );
+  renderClientList(filtered);
+}
+
+function flyToClient(idx) {
+  const c = classifiedData[idx];
+  if (isNaN(c._lat)) return;
+  map.flyTo([c._lat, c._lon], 16, { duration: 1 });
+}
+
+function scrollToClient(idx) {
+  const el = document.getElementById(`ci-${idx}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ══════════════════════════════════════════════════
+//  SELECT DISTRICT
+// ══════════════════════════════════════════════════
+function selectDistrict(name) {
+  // Reset previous
+  if (selectedDist && polyLayers[selectedDist]) {
+    const dp = districtPolys.find(d=>d.name===selectedDist);
+    const color = dp ? (PROVINCE_COLORS[dp.province]||'#94a3b8') : '#94a3b8';
+    const cnt = classifiedData.filter(c=>c._district===selectedDist).length;
+    polyLayers[selectedDist].setStyle({ weight:1.2, fillOpacity: cnt>0?0.22:0.06 });
+  }
+  // Remove active from dist rows
+  document.querySelectorAll('.dist-row').forEach(r=>r.classList.remove('active'));
+
+  selectedDist = name;
+
+  // Highlight polygon
+  if (polyLayers[name]) {
+    const dp = districtPolys.find(d=>d.name===name);
+    const color = dp ? (PROVINCE_COLORS[dp.province]||'#94a3b8') : '#94a3b8';
+    polyLayers[name].setStyle({ weight:2.5, fillOpacity: 0.45 });
+    // Fly to
+    try { map.fitBounds(polyLayers[name].getBounds(), { padding:[60,60], maxZoom:13 }); } catch(e){}
+  }
+
+  // Highlight row
+  const rowId = 'dr-'+esc(name);
+  const row = document.getElementById(rowId);
+  if (row) {
+    row.classList.add('active');
+    row.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    // Open parent province
+    const body = row.closest('.prov-districts');
+    if (body && !body.classList.contains('open')) {
+      body.classList.add('open');
+      body.previousElementSibling.querySelector('.prov-chevron').classList.add('open');
+    }
+  }
+
+  // Filter clients tab
+  document.getElementById('filterDistCliente').value = name;
+  filterClientes();
+}
+
+// ══════════════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════════════
+function buildStats() {
+  document.getElementById('statTotal').textContent = classifiedData.length;
+
+  // By province
+  const byProv = {};
+  classifiedData.forEach(c => { if(c._province!=='—') byProv[c._province]=(byProv[c._province]||0)+1; });
+  const maxP = Math.max(...Object.values(byProv), 1);
+  document.getElementById('statByProv').innerHTML = Object.entries(byProv)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([p,n]) => {
+      const color = PROVINCE_COLORS[p]||'#94a3b8';
+      const pct   = Math.round(n/maxP*100);
+      return `<div class="stat-row">
+        <div class="stat-label" style="color:${color}">${cap(p)}</div>
+        <div class="stat-bar-wrap"><div class="stat-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="stat-val">${n}</div>
+      </div>`;
+    }).join('') || '<div class="empty-msg">Sin datos</div>';
+
+  // By district (top 15)
+  const byDist = {};
+  classifiedData.forEach(c => { if(c._district!=='NO IDENTIFICADO'&&c._district!=='SIN COORDENADAS') byDist[c._district]=(byDist[c._district]||0)+1; });
+  const maxD = Math.max(...Object.values(byDist), 1);
+  document.getElementById('statByDist').innerHTML = Object.entries(byDist)
+    .sort((a,b)=>b[1]-a[1]).slice(0,15)
+    .map(([d,n]) => {
+      const dp = districtPolys.find(x=>x.name===d);
+      const color = dp ? (PROVINCE_COLORS[dp.province]||'#94a3b8') : '#94a3b8';
+      const pct   = Math.round(n/maxD*100);
+      return `<div class="stat-row" style="cursor:pointer" onclick="selectDistrict('${d}');switchTab('distritos')">
+        <div class="stat-label">${d}</div>
+        <div class="stat-bar-wrap"><div class="stat-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="stat-val">${n}</div>
+      </div>`;
+    }).join('') || '<div class="empty-msg">Sin datos</div>';
+}
+
+// ══════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const names = ['distritos','clientes','estadisticas'];
+    b.classList.toggle('active', names[i]===name);
+  });
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+// ══════════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════════
+function exportExcel() {
+  const colDist = document.getElementById('selDist').value;
+  const exportData = classifiedData.map(c => {
+    const out = {};
+    columns.forEach(col => out[col] = c[col]);
+    out[colDist]    = c._district;
+    out['PROVINCIA'] = c._province;
+    return out;
+  });
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Clasificado');
+  ws['!cols'] = Object.keys(exportData[0]).map(c => ({ wch: Math.min(Math.max(c.length+2,12),40) }));
+  XLSX.writeFile(wb, `GeoDistrito_${fileName}`);
+}
+
+// ══════════════════════════════════════════════════
+//  RESET
+// ══════════════════════════════════════════════════
+function resetApp() {
+  if (!confirm('¿Cargar un nuevo archivo?')) return;
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('uploadScreen').style.display = 'flex';
+  document.getElementById('colConfig').style.display = 'none';
+  document.getElementById('uploadProgress').style.display = 'none';
+  document.getElementById('progFill').style.width = '0%';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('btnLaunch').disabled = false;
+  rawData=[]; classifiedData=[]; selectedDist=null;
+}
+</script>
+</body>
+</html>
