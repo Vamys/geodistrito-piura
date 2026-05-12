@@ -171,6 +171,13 @@ async function launchApp() {
     document.getElementById('uploadScreen').style.display = 'none';
     document.getElementById('app').classList.add('visible');
 
+    // Forzar actualización de tamaño de Leaflet una vez que el contenedor es visible
+    if (state.map) {
+      setTimeout(() => {
+        state.map.invalidateSize();
+      }, 100);
+    }
+
   } catch (e) {
     overlay.classList.remove('show');
     btn.disabled = false;
