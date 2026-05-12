@@ -194,7 +194,7 @@ select:focus { outline: none; border-color: var(--accent); }
 .big-label { font-size: 11px; color: var(--muted2); margin-top: 2px; }
 
 /* Map */
-#map { flex: 1; background: #0d1117; }
+#map { height: 100%; width: 100%; background: #0d1117; }
 
 /* Leaflet overrides */
 .leaflet-container { background: #0d1117; font-family: 'Inter', sans-serif; }
